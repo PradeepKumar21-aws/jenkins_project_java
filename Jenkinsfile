@@ -1,9 +1,9 @@
 pipeline {
     agent any
 
-    tools {
-        maven 'Maven-3.9'
-        jdk 'JDK-17'
+    environment {
+        DOCKER_IMAGE = "yourdockerhubusername/java-app"
+        IMAGE_TAG = "latest"
     }
 
     stages {
@@ -25,14 +25,31 @@ pipeline {
                 sh 'mvn package'
             }
         }
-    }
 
-    post {
-        success {
-            echo 'Build Successful!'
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t $DOCKER_IMAGE:$IMAGE_TAG .'
+            }
         }
-        failure {
-            echo 'Build Failed!'
+
+        stage('Docker Login') {
+            steps {
+                withCredentials([
+                    usernamePassword(
+                        credentialsId: 'dockerhub',
+                        usernameVariable: 'DOCKER_USER',
+                        passwordVariable: 'DOCKER_PASS'
+                    )
+                ]) {
+                    sh 'echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin'
+                }
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                sh 'docker push $DOCKER_IMAGE:$IMAGE_TAG'
+            }
         }
     }
 }
